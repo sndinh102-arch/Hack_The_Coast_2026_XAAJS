@@ -1,0 +1,88 @@
+{
+  "camera_index": 0,
+  "frame_width": 640,
+  "frame_height": 480,
+  "serial_port": "/dev/ttyACM0",
+  "serial_baud": 115200,
+  "detector": "mog2",
+  "mog2_history": 2000,
+  "mog2_var_threshold": 32,
+  "mog2_detect_shadows": false,
+  "mog2_learning_rate": 0.004,
+  "mog2_union_static_reference": true,
+  "diff_threshold": 30,
+  "morph_kernel": 5,
+  "min_contour_area": 400,
+  "max_contour_area": 8000,
+  "min_solidity": 0.45,
+  "min_extent": 0.18,
+  "min_bbox_side_px": 14,
+  "require_detection_confirmation": true,
+  "confirm_centroid_max_dist_px": 45,
+  "smooth_frames": 7,
+  "rois": {
+    "north": [
+      234,
+      13,
+      64,
+      104
+    ],
+    "south": [
+      367,
+      325,
+      88,
+      149
+    ],
+    "west": [
+      81,
+      249,
+      141,
+      74
+    ],
+    "east": [
+      433,
+      122,
+      123,
+      66
+    ],
+    "northL": [
+      298,
+      13,
+      39,
+      104
+    ],
+    "eastL": [
+      435,
+      192,
+      121,
+      38
+    ],
+    "southL": [
+      325,
+      329,
+      38,
+      147
+    ],
+    "westL": [
+      85,
+      212,
+      141,
+      31
+    ]
+  },
+  "timing": {
+    "yellow_sec": 3.0,
+    "straight_low_sec": 10.0,
+    "straight_high_sec": 25.0,
+    "left_low_sec": 5.0,
+    "left_high_sec": 10.0,
+    "left_blink_sec": 3.0,
+    "left_off_buffer_sec": 1.0,
+    "all_red_clearance_sec": 2.0,
+    "high_threshold": 2
+  },
+  "adaptive": true,
+  "hide_in_intersection": false,
+  "intersection_roi": null,
+  "intersection_auto_fraction": 0.35
+}
