@@ -1,163 +1,237 @@
-// ===================== LED PINS =====================
-int Gled = 2;
-int Yled = 3;
-int Rled = 4;
-int Bled = 5; // protected left turn (blue)
+// ===================== NORTH/SOUTH LED PINS =====================
+int NS_G = 2;
+int NS_Y = 3;
+int NS_R = 4;
+int NS_B = 5;
 
-// ===================== SENSOR PINS =====================
-int lowTrafficSensor = 6;
-int highTrafficSensor = 7;
-int leftTurnRequest = 8;
-int accidentSensor = 9;
+// ===================== EAST/WEST LED PINS =====================
+int EW_G = 6;
+int EW_Y = 7;
+int EW_R = 8;
+int EW_B = 9;
 
-// ===================== TIMING =====================
-int yellowTime = 3000;
+// ===================== TIMING (ms) =====================
+const int BLUE_BLINK_TIME = 3000;
+const int BLUE_BLINK_INTERVAL = 250;
+const int LEFT_TO_GREEN_DELAY = 1000;
+const int YELLOW_TIME = 3000;
+const int ALL_RED_TIME = 1000;
 
-// base cycles
-int lowCycle = 10000;
-int highCycle = 30000;
+// Low traffic timings
+const int LEFT_LOW_TIME = 5000;
+const int STRAIGHT_LOW_TIME = 10000;
 
-// left turn cycles
-int leftLow = 5000;
-int leftHigh = 15000;
+// High traffic timings
+const int LEFT_HIGH_TIME = 10000;
+const int STRAIGHT_HIGH_TIME = 25000;
+
+// ===================== STATES =====================
+// 0 = low left + low straight
+// 1 = low left + high straight
+// 2 = high left + high straight
+const int STATE_0 = 0;
+const int STATE_1 = 1;
+const int STATE_2 = 2;
+
+int testState = STATE_0;
 
 // ===================== SETUP =====================
 void setup() {
   Serial.begin(9600);
 
-  pinMode(Gled, OUTPUT);
-  pinMode(Yled, OUTPUT);
-  pinMode(Rled, OUTPUT);
-  pinMode(Bled, OUTPUT);
+  pinMode(NS_G, OUTPUT);
+  pinMode(NS_Y, OUTPUT);
+  pinMode(NS_R, OUTPUT);
+  pinMode(NS_B, OUTPUT);
 
-  pinMode(lowTrafficSensor, INPUT);
-  pinMode(highTrafficSensor, INPUT);
-  pinMode(leftTurnRequest, INPUT);
-  pinMode(accidentSensor, INPUT);
+  pinMode(EW_G, OUTPUT);
+  pinMode(EW_Y, OUTPUT);
+  pinMode(EW_R, OUTPUT);
+  pinMode(EW_B, OUTPUT);
+
+  setAllRed();
+
+  Serial.println("Traffic light test ready");
+  Serial.println("Send 0, 1, or 2");
+  Serial.println("0 = low left + low straight");
+  Serial.println("1 = low left + high straight");
+  Serial.println("2 = high left + high straight");
 }
 
-// ===================== MAIN LOOP =====================
+// ===================== LOOP =====================
 void loop() {
+  readTestState();
 
-  // ===== FAILSAFE MODE (ACCIDENT DETECTED) =====
-  if (digitalRead(accidentSensor) == HIGH) {
+  // Run North/South using selected state
+  runNSPhase(testState);
 
-  // turn everything off except red blinking
-  digitalWrite(Gled, LOW);
-  digitalWrite(Yled, LOW);
-  digitalWrite(Bled, LOW);
+  readTestState();
 
-  while (digitalRead(accidentSensor) == HIGH) {
+  // Run East/West using selected state
+  runEWPhase(testState);
+}
 
-    digitalWrite(Rled, HIGH);
-    delay(500);
-    digitalWrite(Rled, LOW);
-    delay(500);
+// ===================== PHASES =====================
+void runNSPhase(int state) {
+  int leftTime = getLeftTime(state);
+  int straightTime = getStraightTime(state);
+
+  // Keep EW solid red the entire time
+  digitalWrite(EW_G, LOW);
+  digitalWrite(EW_Y, LOW);
+  digitalWrite(EW_B, LOW);
+  digitalWrite(EW_R, HIGH);
+
+  // NS starts red off because left-turn is active
+  digitalWrite(NS_G, LOW);
+  digitalWrite(NS_Y, LOW);
+  digitalWrite(NS_R, LOW);
+  digitalWrite(NS_B, HIGH);
+
+  // solid blue
+  smartDelay(leftTime);
+
+  // blinking blue
+  unsigned long startBlink = millis();
+  while (millis() - startBlink < BLUE_BLINK_TIME) {
+    digitalWrite(NS_B, HIGH);
+    smartDelay(BLUE_BLINK_INTERVAL);
+
+    digitalWrite(NS_B, LOW);
+    smartDelay(BLUE_BLINK_INTERVAL);
+  }
+
+  // 1-second no-left-turn buffer
+  digitalWrite(NS_B, LOW);
+  smartDelay(LEFT_TO_GREEN_DELAY);
+
+  // straight green
+  digitalWrite(NS_G, HIGH);
+  smartDelay(straightTime);
+
+  // yellow
+  digitalWrite(NS_G, LOW);
+  digitalWrite(NS_Y, HIGH);
+  smartDelay(YELLOW_TIME);
+
+  // back to red
+  digitalWrite(NS_Y, LOW);
+  digitalWrite(NS_R, HIGH);
+
+  // both red briefly before switching
+  digitalWrite(EW_R, HIGH);
+  smartDelay(ALL_RED_TIME);
+}
+
+void runEWPhase(int state) {
+  int leftTime = getLeftTime(state);
+  int straightTime = getStraightTime(state);
+
+  // Keep NS solid red the entire time
+  digitalWrite(NS_G, LOW);
+  digitalWrite(NS_Y, LOW);
+  digitalWrite(NS_B, LOW);
+  digitalWrite(NS_R, HIGH);
+
+  // EW starts red off because left-turn is active
+  digitalWrite(EW_G, LOW);
+  digitalWrite(EW_Y, LOW);
+  digitalWrite(EW_R, LOW);
+  digitalWrite(EW_B, HIGH);
+
+  // solid blue
+  smartDelay(leftTime);
+
+  // blinking blue
+  unsigned long startBlink = millis();
+  while (millis() - startBlink < BLUE_BLINK_TIME) {
+    digitalWrite(EW_B, HIGH);
+    smartDelay(BLUE_BLINK_INTERVAL);
+
+    digitalWrite(EW_B, LOW);
+    smartDelay(BLUE_BLINK_INTERVAL);
+  }
+
+  // 1-second no-left-turn buffer
+  digitalWrite(EW_B, LOW);
+  smartDelay(LEFT_TO_GREEN_DELAY);
+
+  // straight green
+  digitalWrite(EW_G, HIGH);
+  smartDelay(straightTime);
+
+  // yellow
+  digitalWrite(EW_G, LOW);
+  digitalWrite(EW_Y, HIGH);
+  smartDelay(YELLOW_TIME);
+
+  // back to red
+  digitalWrite(EW_Y, LOW);
+  digitalWrite(EW_R, HIGH);
+
+  // both red briefly before switching
+  digitalWrite(NS_R, HIGH);
+  smartDelay(ALL_RED_TIME);
+}
+
+// ===================== TIMING LOOKUP =====================
+int getLeftTime(int state) {
+  switch (state) {
+    case STATE_0:
+      return LEFT_LOW_TIME;
+    case STATE_1:
+      return LEFT_LOW_TIME;
+    case STATE_2:
+      return LEFT_HIGH_TIME;
+    default:
+      return LEFT_LOW_TIME;
   }
 }
 
-  bool lowTraffic = digitalRead(lowTrafficSensor);
-  bool highTraffic = digitalRead(highTrafficSensor);
-  bool leftTurn = digitalRead(leftTurnRequest);
+int getStraightTime(int state) {
+  switch (state) {
+    case STATE_0:
+      return STRAIGHT_LOW_TIME;
+    case STATE_1:
+      return STRAIGHT_HIGH_TIME;
+    case STATE_2:
+      return STRAIGHT_HIGH_TIME;
+    default:
+      return STRAIGHT_LOW_TIME;
+  }
+}
 
-  // reset all lights before decision
-  digitalWrite(Gled, LOW);
-  digitalWrite(Yled, LOW);
-  digitalWrite(Rled, LOW);
-  digitalWrite(Bled, LOW);
-
-  // ===================== HIGH TRAFFIC DOMINANT =====================
-  if (highTraffic && !lowTraffic) {
-
-    if (leftTurn) {
-
-      // LEFT TURN PHASE (HIGH TRAFFIC)
-      digitalWrite(Bled, HIGH);
-      delay(leftHigh);
-      digitalWrite(Bled, LOW);
-
-      // NORMAL GREEN PHASE
-      digitalWrite(Gled, HIGH);
-      delay(highCycle);
-
-      // YELLOW TRANSITION
-      digitalWrite(Gled, LOW);
-      digitalWrite(Yled, HIGH);
-      delay(yellowTime);
-
-      digitalWrite(Yled, LOW);
-      digitalWrite(Rled, HIGH);
-      delay(1000);
-      digitalWrite(Rled, LOW);
-    }
-
-    else {
-      digitalWrite(Gled, HIGH);
-      delay(highCycle);
-
-      digitalWrite(Gled, LOW);
-      digitalWrite(Yled, HIGH);
-      delay(yellowTime);
-
-      digitalWrite(Yled, LOW);
-      digitalWrite(Rled, HIGH);
-      delay(1000);
-      digitalWrite(Rled, LOW);
+// ===================== SERIAL INPUT =====================
+void readTestState() {
+  if (Serial.available()) {
+    char input = Serial.read();
+    if (input >= '0' && input <= '2') {
+      testState = input - '0';
+      Serial.print("State set to: ");
+      Serial.println(testState);
     }
   }
+}
 
-  // ===================== LOW TRAFFIC DOMINANT =====================
-  else if (lowTraffic && !highTraffic) {
+// ===================== HELPERS =====================
+void setAllRed() {
+  digitalWrite(NS_G, LOW);
+  digitalWrite(NS_Y, LOW);
+  digitalWrite(NS_B, LOW);
+  digitalWrite(NS_R, HIGH);
 
-    if (leftTurn) {
+  digitalWrite(EW_G, LOW);
+  digitalWrite(EW_Y, LOW);
+  digitalWrite(EW_B, LOW);
+  digitalWrite(EW_R, HIGH);
+}
 
-      // LEFT TURN PHASE (LOW TRAFFIC)
-      digitalWrite(Bled, HIGH);
-      delay(leftLow);
-      digitalWrite(Bled, LOW);
-
-      // NORMAL GREEN PHASE
-      digitalWrite(Gled, HIGH);
-      delay(lowCycle);
-
-      digitalWrite(Gled, LOW);
-      digitalWrite(Yled, HIGH);
-      delay(yellowTime);
-
-      digitalWrite(Yled, LOW);
-      digitalWrite(Rled, HIGH);
-      delay(1000);
-      digitalWrite(Rled, LOW);
+void smartDelay(unsigned long duration) {
+  unsigned long startTime = millis();
+  while (millis() - startTime < duration) {
+    if (Serial.available()) {
+      readTestState();
     }
-
-    else {
-      digitalWrite(Gled, HIGH);
-      delay(lowCycle);
-
-      digitalWrite(Gled, LOW);
-      digitalWrite(Yled, HIGH);
-      delay(yellowTime);
-
-      digitalWrite(Yled, LOW);
-      digitalWrite(Rled, HIGH);
-      delay(1000);
-      digitalWrite(Rled, LOW);
-    }
-  }
-
-  // ===================== NO TRAFFIC =====================
-  else {
-
-    // idle blinking yellow mode
-    digitalWrite(Gled, LOW);
-    digitalWrite(Rled, LOW);
-    digitalWrite(Bled, LOW);
-
-    for (int i = 0; i < 5; i++) {
-      digitalWrite(Yled, HIGH);
-      delay(400);
-      digitalWrite(Yled, LOW);
-      delay(400);
-    }
+    delay(10);
   }
 }
